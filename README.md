@@ -1,3 +1,4 @@
+```text
 tutor_system/
 ├── app/
 │   ├── integration/         # Layer: Integration (Adapters for SSO, Library, DataCore)

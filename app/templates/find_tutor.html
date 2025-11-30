@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tìm Tutor - HCMUT Tutor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen relative">
+
+    <!-- Include Header -->
+    {% include 'header.html' %}
+
+    <div class="container mx-auto py-8 px-4 max-w-7xl">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-blue-900 mb-2">Tìm Tutor</h1>
+            <p class="text-gray-600">Tìm kiếm và chọn tutor phù hợp với nhu cầu học tập của bạn</p>
+        </div>
+
+        <!-- AI Suggestions Section (Mocked UI) -->
+        <div class="mb-8 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="p-6">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="sparkles" class="h-5 w-5 text-blue-600"></i>
+                    <h3 class="text-lg font-semibold text-blue-900">Gợi ý Tutor dành cho bạn</h3>
+                </div>
+                <p class="text-sm text-gray-600 mb-4">Dựa trên hồ sơ và nhu cầu học tập của bạn</p>
+                
+                <!-- Suggested Tutors Grid (Populated via JS) -->
+                <div id="aiSuggestionsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Loading State -->
+                    <div class="col-span-2 text-center py-4 text-gray-400 text-sm">
+                        Đang phân tích dữ liệu...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search and Filter Bar -->
+        <div class="flex flex-col md:flex-row gap-4 mb-6">
+            <div class="flex-1 relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"></i>
+                <input 
+                    type="text" 
+                    id="searchQuery" 
+                    placeholder="Tìm kiếm theo tên tutor hoặc môn học..." 
+                    class="pl-10 flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+                    oninput="filterTutors()"
+                >
+            </div>
+            <div class="w-full md:w-64">
+                <div class="relative">
+                    <i data-lucide="filter" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"></i>
+                    <select id="departmentFilter" onchange="filterTutors()" class="pl-10 flex h-10 w-full appearance-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent cursor-pointer">
+                        <option value="all">Tất cả các khoa</option>
+                        <option value="Khoa học Máy tính">Khoa học Máy tính</option>
+                        <option value="Điện - Điện tử">Điện - Điện tử</option>
+                        <option value="Cơ khí">Cơ khí</option>
+                        <option value="Kỹ thuật Hóa học">Kỹ thuật Hóa học</option>
+                        <option value="Khoa học Ứng dụng">Khoa học Ứng dụng</option>
+                    </select>
+                    <i data-lucide="chevron-down" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Tutors Grid -->
+        <div id="tutorGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Tutors will be loaded here via JS -->
+            <div class="col-span-full text-center py-12 text-gray-500">
+                <i data-lucide="loader-2" class="h-8 w-8 mx-auto mb-2 animate-spin text-blue-600"></i>
+                <p>Đang tải danh sách Tutor...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Custom Modal Component -->
+    <div id="custom-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div id="modal-icon-bg" class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <i id="modal-icon" data-lucide="info" class="h-6 w-6 text-blue-600"></i>
+                            </div>
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Thông báo</h3>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-500" id="modal-message">Nội dung thông báo...</p>
+                                    
+                                    <!-- Request Note Input (Only visible for Tutor Selection) -->
+                                    <div id="modal-input-container" class="mt-4 hidden">
+                                        <label class="block text-sm font-medium text-gray-700 text-left mb-1">Lời nhắn (tùy chọn)</label>
+                                        <textarea id="requestNote" rows="2" class="w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500" placeholder="Ví dụ: Em muốn học môn Giải tích 1..."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button type="button" id="modal-confirm-btn" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto">Đồng ý</button>
+                        <button type="button" id="modal-cancel-btn" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto" onclick="closeModal()">Hủy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        lucide.createIcons();
+        let allTutors = [];
+        let confirmCallback = null;
+
+        // --- Modal Logic (Unified) ---
+        function showModal(title, message, isConfirm = false, onConfirm = null, type = 'info', showInput = false) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            
+            const iconBg = document.getElementById('modal-icon-bg');
+            const icon = document.getElementById('modal-icon');
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            const inputContainer = document.getElementById('modal-input-container');
+
+            // Reset Styles
+            iconBg.className = "mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10";
+            confirmBtn.className = "inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto transition-colors";
+            
+            // Show/Hide Input
+            if(showInput) {
+                inputContainer.classList.remove('hidden');
+                document.getElementById('requestNote').value = '';
+            } else {
+                inputContainer.classList.add('hidden');
+            }
+
+            // Customize based on type
+            if (type === 'danger') {
+                iconBg.classList.add('bg-red-100');
+                icon.classList.replace('text-blue-600', 'text-red-600');
+                icon.setAttribute('data-lucide', 'alert-triangle');
+                confirmBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+                confirmBtn.innerText = "Xóa ngay";
+            } else if (type === 'success') {
+                iconBg.classList.add('bg-green-100');
+                icon.classList.replace('text-blue-600', 'text-green-600');
+                icon.setAttribute('data-lucide', 'check-circle');
+                confirmBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+                confirmBtn.innerText = "OK";
+            } else {
+                iconBg.classList.add('bg-blue-100');
+                icon.classList.replace('text-red-600', 'text-blue-600');
+                icon.classList.replace('text-green-600', 'text-blue-600');
+                icon.setAttribute('data-lucide', 'info');
+                confirmBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                confirmBtn.innerText = isConfirm ? "Gửi yêu cầu" : "Đồng ý";
+            }
+            lucide.createIcons(); 
+
+            // Handle Buttons
+            if (isConfirm) {
+                cancelBtn.classList.remove('hidden');
+                confirmCallback = onConfirm;
+                
+                // Remove old listeners and add new one
+                const newBtn = confirmBtn.cloneNode(true);
+                confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+                
+                newBtn.onclick = () => {
+                    // If input is visible, pass the value to callback
+                    const note = showInput ? document.getElementById('requestNote').value : null;
+                    if (confirmCallback) confirmCallback(note);
+                    // Don't close modal here if it's async, let callback handle it
+                };
+            } else {
+                cancelBtn.classList.add('hidden');
+                confirmBtn.innerText = "Đóng";
+                confirmBtn.onclick = closeModal;
+            }
+
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        // --- Fetch Data on Load ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch('/api/find_tutor');
+                if (!res.ok) throw new Error("Failed to fetch");
+                const data = await res.json();
+                allTutors = data;
+                renderTutors(allTutors);
+                renderAISuggestions(allTutors.slice(0, 2));
+            } catch (error) {
+                console.error("Error fetching tutors:", error);
+                document.getElementById('tutorGrid').innerHTML = `
+                    <div class="col-span-full text-center py-12 text-red-500">
+                        <i data-lucide="wifi-off" class="h-8 w-8 mx-auto mb-2"></i>
+                        <p>Không thể tải danh sách Tutor. Vui lòng thử lại sau.</p>
+                    </div>`;
+                lucide.createIcons();
+            }
+        });
+
+        // --- Render Functions ---
+        function renderTutors(tutors) {
+            const grid = document.getElementById('tutorGrid');
+            grid.innerHTML = '';
+
+            if (tutors.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12 text-gray-500">
+                        <i data-lucide="search-x" class="h-12 w-12 mx-auto mb-3 text-gray-300"></i>
+                        <p>Không tìm thấy tutor phù hợp</p>
+                    </div>`;
+                lucide.createIcons();
+                return;
+            }
+
+            tutors.forEach(tutor => {
+                const card = createTutorCard(tutor);
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function renderAISuggestions(tutors) {
+            const grid = document.getElementById('aiSuggestionsGrid');
+            grid.innerHTML = '';
+            
+            if(tutors.length === 0) {
+                grid.parentElement.parentElement.style.display = 'none';
+                return;
+            }
+
+            tutors.forEach(tutor => {
+                const card = document.createElement('div');
+                card.className = "bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer flex items-start gap-3";
+                card.onclick = () => openSelectModal(tutor);
+                
+                card.innerHTML = `
+                    <div class="relative">
+                        <img src="${tutor.avatar}" alt="${tutor.name}" class="h-12 w-12 rounded-full object-cover bg-gray-100">
+                        <span class="absolute -bottom-1 -right-1 bg-green-500 border-2 border-white w-3 h-3 rounded-full"></span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-semibold text-gray-900 truncate">${tutor.name}</h4>
+                                <p class="text-xs text-gray-500 truncate">${tutor.department}</p>
+                            </div>
+                            <span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                Phù hợp 98%
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                            <div class="flex items-center gap-1">
+                                <i data-lucide="star" class="h-3 w-3 text-yellow-400 fill-yellow-400"></i>
+                                <span>${tutor.rating}</span>
+                            </div>
+                            <span>•</span>
+                            <span>${tutor.totalSessions} buổi dạy</span>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function createTutorCard(tutor) {
+            const card = document.createElement('div');
+            card.className = "bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 cursor-pointer overflow-hidden flex flex-col";
+            card.onclick = () => openSelectModal(tutor);
+
+            const subjectsHtml = tutor.subjects.slice(0, 3).map(sub => 
+                `<span class="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600">${sub}</span>`
+            ).join('');
+            
+            const extraCount = tutor.subjects.length > 3 ? 
+                `<span class="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-500">+${tutor.subjects.length - 3}</span>` : '';
+
+            card.innerHTML = `
+                <div class="p-6 flex-1">
+                    <div class="flex flex-col items-center text-center mb-4">
+                        <div class="relative mb-3">
+                            <img src="${tutor.avatar}" alt="${tutor.name}" class="h-20 w-20 rounded-full object-cover bg-gray-100 border-4 border-white shadow-sm">
+                        </div>
+                        <h3 class="font-bold text-lg text-gray-900 mb-1">${tutor.name}</h3>
+                        <p class="text-sm text-blue-600 font-medium">${tutor.department}</p>
+                    </div>
+
+                    <div class="flex items-center justify-center gap-6 mb-6 pb-6 border-b border-gray-100">
+                        <div class="text-center">
+                            <div class="flex items-center gap-1 justify-center font-bold text-gray-900">
+                                <i data-lucide="star" class="h-4 w-4 text-yellow-400 fill-yellow-400"></i>
+                                ${tutor.rating}
+                            </div>
+                            <div class="text-xs text-gray-500 mt-0.5">Đánh giá</div>
+                        </div>
+                        <div class="h-8 w-px bg-gray-200"></div>
+                        <div class="text-center">
+                            <div class="flex items-center gap-1 justify-center font-bold text-gray-900">
+                                <i data-lucide="book-open" class="h-4 w-4 text-blue-500"></i>
+                                ${tutor.totalSessions}
+                            </div>
+                            <div class="text-xs text-gray-500 mt-0.5">Buổi dạy</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 justify-center mb-4">
+                        ${subjectsHtml}
+                        ${extraCount}
+                    </div>
+
+                    <p class="text-sm text-gray-600 line-clamp-2 text-center italic">"${tutor.bio}"</p>
+                </div>
+                
+                <div class="p-4 bg-gray-50 border-t border-gray-100">
+                    <button class="w-full inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 h-10 px-4 transition-colors">
+                        Xem hồ sơ & Đăng ký
+                    </button>
+                </div>
+            `;
+            return card;
+        }
+
+        // --- Filtering Logic ---
+        function filterTutors() {
+            const query = document.getElementById('searchQuery').value.toLowerCase();
+            const dept = document.getElementById('departmentFilter').value;
+
+            const filtered = allTutors.filter(t => {
+                const matchesSearch = t.name.toLowerCase().includes(query) || 
+                                      t.subjects.some(s => s.toLowerCase().includes(query));
+                const matchesDept = dept === 'all' || t.department === dept;
+                return matchesSearch && matchesDept;
+            });
+
+            renderTutors(filtered);
+        }
+
+        // --- Selection Logic ---
+        function openSelectModal(tutor) {
+            showModal(
+                `Đăng ký Tutor: ${tutor.name}`,
+                `Bạn có chắc chắn muốn gửi yêu cầu đăng ký học với Tutor ${tutor.name} không? Tutor sẽ nhận được thông báo của bạn.`,
+                true,
+                (note) => submitSelection(tutor.id, note), // Pass callback
+                'info',
+                true // Show input
+            );
+        }
+
+        async function submitSelection(tutorId, note) {
+            // Find the NEW button created by showModal to show loading state
+            // Since we replace the button node, we need to grab it again
+            const btn = document.querySelectorAll('#modal-confirm-btn')[0]; // It's unique ID but querySelectorAll ensures fresh DOM access
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 animate-spin mr-2"></i> Đang gửi...';
+            lucide.createIcons();
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/select_tutor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tutor_id: tutorId, note: note })
+                });
+                const data = await res.json();
+                
+                closeModal();
+                
+                if (data.success) {
+                    showModal("Thành công", data.message, false, null, 'success');
+                } else {
+                    showModal("Lỗi", data.message, false, null, 'danger');
+                }
+            } catch (error) {
+                closeModal();
+                showModal("Lỗi mạng", "Lỗi kết nối server", false, null, 'danger');
+            }
+        }
+    </script>
+</body>
+</html>

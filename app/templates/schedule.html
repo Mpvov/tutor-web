@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý lịch dạy - Tutor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- FullCalendar CSS -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Customizing FullCalendar to match Tailwind Theme */
+        .fc {
+            font-family: 'Inter', sans-serif;
+            --fc-border-color: #e5e7eb;
+            --fc-button-bg-color: #2563eb;
+            --fc-button-border-color: #2563eb;
+            --fc-button-hover-bg-color: #1d4ed8;
+            --fc-button-hover-border-color: #1d4ed8;
+            --fc-button-active-bg-color: #1e40af;
+            --fc-button-active-border-color: #1e40af;
+            --fc-today-bg-color: #eff6ff;
+        }
+        .fc-col-header-cell { background-color: #f9fafb; padding: 8px 0; }
+        .fc-timegrid-slot { height: 3em !important; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen relative">
+
+    <!-- Include Header -->
+    {% include 'header.html' %}
+
+    <div class="container mx-auto py-8 px-4 max-w-7xl">
+        <!-- Page Header -->
+        <div class="mb-8">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                    <i data-lucide="calendar-clock" class="w-6 h-6"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-blue-900">Quản lý lịch rảnh</h1>
+            </div>
+            <p class="text-gray-600 ml-11">Cập nhật các khung giờ bạn có thể nhận dạy kèm. Sinh viên sẽ dựa vào lịch này để đặt hẹn.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            
+            <!-- Sidebar / Instructions -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Info Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-500"></i>
+                        Hướng dẫn
+                    </h3>
+                    <ul class="space-y-3 text-sm text-gray-600">
+                        <li class="flex items-start gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5"></div>
+                            <span>Click vào ô trống trên lịch để <strong>thêm lịch rảnh</strong> (màu xanh).</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5"></div>
+                            <span>Click vào lịch đã có để <strong>chọn xóa</strong> (viền đỏ).</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5"></div>
+                            <span>Nhấn nút "Xóa đã chọn" bên dưới để hoàn tất việc xóa.</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Action Actions -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <button onclick="deleteSelected()" class="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-medium py-2 px-4 rounded-lg transition-colors mb-3">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        Xóa lịch đã chọn
+                    </button>
+                    <a href="/tutor/dashboard" class="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium py-2 px-4 rounded-lg transition-colors">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        Quay lại Dashboard
+                    </a>
+                </div>
+            </div>
+
+            <!-- Calendar Area -->
+            <div class="lg:col-span-3">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <div id="calendar" class="min-h-[600px]"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal Component -->
+    <div id="custom-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                    <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div id="modal-icon-bg" class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                                <i id="modal-icon" data-lucide="info" class="h-6 w-6 text-blue-600"></i>
+                            </div>
+                            <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left">
+                                <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Thông báo</h3>
+                                <div class="mt-2">
+                                    <p class="text-sm text-gray-500" id="modal-message">Nội dung thông báo...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+                        <button type="button" id="modal-confirm-btn" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto">Đồng ý</button>
+                        <button type="button" id="modal-cancel-btn" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto" onclick="closeModal()">Hủy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FullCalendar Script -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <script>
+        lucide.createIcons();
+
+        // --- Helper: Get Local ISO String (Fix Timezone Issue) ---
+        function toLocalISOString(date) {
+            const offset = date.getTimezoneOffset() * 60000; // offset in milliseconds
+            const localISOTime = (new Date(date - offset)).toISOString().slice(0, 19).replace('T', ' ');
+            return localISOTime; // Returns "YYYY-MM-DD HH:mm:ss" in local time
+        }
+
+        // --- Modal Logic ---
+        let confirmCallback = null;
+
+        function showModal(title, message, isConfirm = false, onConfirm = null, type = 'info') {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            
+            const iconBg = document.getElementById('modal-icon-bg');
+            const icon = document.getElementById('modal-icon');
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+
+            iconBg.className = "mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10";
+            confirmBtn.className = "inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto";
+
+            if (type === 'danger') {
+                iconBg.classList.add('bg-red-100');
+                icon.classList.replace('text-blue-600', 'text-red-600');
+                icon.setAttribute('data-lucide', 'alert-triangle');
+                confirmBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+                confirmBtn.innerText = "Xóa ngay";
+            } else if (type === 'success') {
+                iconBg.classList.add('bg-green-100');
+                icon.classList.replace('text-blue-600', 'text-green-600');
+                icon.setAttribute('data-lucide', 'check-circle');
+                confirmBtn.classList.add('bg-green-600', 'hover:bg-green-500');
+                confirmBtn.innerText = "OK";
+            } else {
+                iconBg.classList.add('bg-blue-100');
+                icon.classList.replace('text-red-600', 'text-blue-600');
+                icon.setAttribute('data-lucide', 'info');
+                confirmBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+                confirmBtn.innerText = "Đồng ý";
+            }
+            lucide.createIcons();
+
+            if (isConfirm) {
+                cancelBtn.classList.remove('hidden');
+                confirmCallback = onConfirm;
+                confirmBtn.onclick = () => {
+                    if (confirmCallback) confirmCallback();
+                    closeModal();
+                };
+            } else {
+                cancelBtn.classList.add('hidden');
+                confirmBtn.innerText = "Đóng";
+                confirmBtn.onclick = closeModal;
+            }
+
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        // --- Calendar Logic ---
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'timeGridWeek',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                buttonText: { today: 'Hôm nay', month: 'Tháng', week: 'Tuần', day: 'Ngày', list: 'Danh sách' },
+                slotMinTime: '07:00:00',
+                slotMaxTime: '22:00:00',
+                allDaySlot: false,
+                locale: 'vi',
+                selectable: true,
+                selectMirror: true,
+                events: '/api/get_schedule',
+
+                // Add Event Logic
+                select: function(info) {
+                    showModal(
+                        "Thêm lịch rảnh", 
+                        `Bạn có muốn thêm khung giờ ${info.startStr.slice(11,16)} - ${info.endStr.slice(11,16)} vào lịch rảnh không?`,
+                        true,
+                        async function() {
+                            try {
+                                const res = await fetch('/api/update_schedule', {
+                                    method: 'POST',
+                                    headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({
+                                        action: 'add', 
+                                        slots: [info.startStr] // info.startStr is already correct ISO-like for current view
+                                    })
+                                });
+                                const d = await res.json();
+                                if(d.success) {
+                                    calendar.refetchEvents();
+                                    showModal("Thành công", d.message, false, null, 'success');
+                                } else {
+                                    showModal("Lỗi", d.message, false, null, 'danger');
+                                }
+                            } catch (e) {
+                                showModal("Lỗi", "Lỗi kết nối server", false, null, 'danger');
+                            }
+                        }
+                    );
+                    calendar.unselect();
+                },
+
+                // Select for Deletion Logic
+                eventClick: function(info) {
+                    if (info.event.extendedProps.selected) {
+                        info.el.style.borderColor = '';
+                        info.el.style.backgroundColor = '';
+                        info.event.setExtendedProp('selected', false);
+                    } else {
+                        info.el.style.borderColor = '#ef4444'; 
+                        info.el.style.borderWidth = '2px';
+                        info.event.setExtendedProp('selected', true);
+                    }
+                },
+
+                eventDidMount: function(info) {
+                    info.el.title = "Click để chọn xóa";
+                }
+            });
+
+            calendar.render();
+
+            // Delete Function
+            window.deleteSelected = async () => {
+                const selectedEvents = calendar.getEvents().filter(e => e.extendedProps.selected);
+                
+                if(selectedEvents.length === 0) {
+                    showModal("Thông báo", "Vui lòng click vào các khung giờ trên lịch để chọn xóa (viền đỏ).");
+                    return;
+                }
+
+                showModal(
+                    "Xác nhận xóa",
+                    `Bạn chắc chắn muốn xóa ${selectedEvents.length} khung giờ này?`,
+                    true,
+                    async function() {
+                        // FIX: Use toLocalISOString instead of toISOString() to preserve local time
+                        const slots = selectedEvents.map(e => toLocalISOString(e.start)); 
+
+                        try {
+                            const res = await fetch('/api/update_schedule', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({action: 'delete', slots: slots})
+                            });
+                            const d = await res.json();
+                            
+                            if(d.success) {
+                                calendar.refetchEvents();
+                                showModal("Thành công", d.message, false, null, 'success');
+                            } else {
+                                showModal("Lỗi", d.message, false, null, 'danger');
+                            }
+                        } catch (e) {
+                            showModal("Lỗi", "Lỗi khi xóa lịch: " + e, false, null, 'danger');
+                        }
+                    },
+                    'danger'
+                );
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Tutor - HCMUT Tutor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Include Header -->
+    {% include 'header.html' %}
+
+    <div class="container mx-auto py-8 px-4 max-w-7xl">
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-blue-900 mb-2">Dashboard Tutor</h1>
+            <p class="text-gray-600">Quản lý lịch dạy, yêu cầu đặt lịch và theo dõi tiến độ sinh viên</p>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <a href="/schedule" class="h-24 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex flex-col items-center justify-center gap-2 transition-colors shadow-sm">
+                <i data-lucide="calendar" class="h-6 w-6"></i>
+                <span class="font-medium">Quản lý lịch trống</span>
+            </a>
+            <a href="/my-students" class="h-24 bg-white hover:bg-gray-50 border border-gray-200 text-gray-900 rounded-lg flex flex-col items-center justify-center gap-2 transition-colors shadow-sm">
+                <i data-lucide="users" class="h-6 w-6"></i>
+                <span class="font-medium">Sinh viên của tôi</span>
+            </a>
+            <a href="/user-directory" class="h-24 bg-white hover:bg-gray-50 border border-gray-200 text-gray-900 rounded-lg flex flex-col items-center justify-center gap-2 transition-colors shadow-sm">
+                <i data-lucide="book-open" class="h-6 w-6"></i>
+                <span class="font-medium">Tài liệu buổi học</span>
+            </a>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Stat 1 -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <div class="flex flex-row items-center justify-between pb-2 mb-2">
+                    <h3 class="text-sm font-medium text-gray-500">Tổng số buổi học</h3>
+                    <i data-lucide="calendar" class="h-4 w-4 text-gray-400"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900">{{ total_sessions }}</div>
+                    <p class="text-xs text-gray-500 mt-1">Trong học kỳ này</p>
+                </div>
+            </div>
+
+            <!-- Stat 2 -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <div class="flex flex-row items-center justify-between pb-2 mb-2">
+                    <h3 class="text-sm font-medium text-gray-500">Sinh viên đang dạy</h3>
+                    <i data-lucide="users" class="h-4 w-4 text-gray-400"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900">{{ active_students }}</div>
+                    <p class="text-xs text-gray-500 mt-1">Sinh viên đang theo học</p>
+                </div>
+            </div>
+
+            <!-- Stat 3 -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <div class="flex flex-row items-center justify-between pb-2 mb-2">
+                    <h3 class="text-sm font-medium text-gray-500">Đánh giá trung bình</h3>
+                    <i data-lucide="star" class="h-4 w-4 text-gray-400"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900">{{ rating }}</div>
+                    <p class="text-xs text-gray-500 mt-1">Từ 89 đánh giá</p>
+                </div>
+            </div>
+
+            <!-- Stat 4 -->
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <div class="flex flex-row items-center justify-between pb-2 mb-2">
+                    <h3 class="text-sm font-medium text-gray-500">Giờ dạy tháng này</h3>
+                    <i data-lucide="clock" class="h-4 w-4 text-gray-400"></i>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900">{{ teaching_hours }}</div>
+                    <p class="text-xs text-gray-500 mt-1">Giờ đã hoàn thành</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs Section -->
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <!-- Tabs Header -->
+            <div class="flex border-b border-gray-200">
+                <button onclick="openTab('pending')" id="tab-pending" class="flex-1 py-4 px-6 text-sm font-medium text-blue-600 border-b-2 border-blue-600 bg-blue-50 focus:outline-none transition-colors">
+                    Yêu cầu đặt lịch ({{ pending_requests|length }})
+                </button>
+                <button onclick="openTab('upcoming')" id="tab-upcoming" class="flex-1 py-4 px-6 text-sm font-medium text-gray-500 hover:text-gray-700 focus:outline-none transition-colors">
+                    Lịch sắp tới ({{ upcoming_sessions|length }})
+                </button>
+            </div>
+
+            <!-- Tab Content: Pending -->
+            <div id="content-pending" class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Yêu cầu đặt lịch mới</h3>
+                        <p class="text-sm text-gray-500">Xác nhận hoặc từ chối các yêu cầu đặt lịch từ sinh viên</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    {% if pending_requests %}
+                        {% for req in pending_requests %}
+                        <div class="flex flex-col md:flex-row items-start gap-4 p-4 border border-gray-100 rounded-lg bg-gray-50/50 hover:bg-gray-50 transition-colors">
+                            <div class="flex-shrink-0 w-full md:w-16 text-center md:text-left flex md:block items-center gap-2 md:gap-0">
+                                <div class="text-sm text-gray-500 font-medium">{{ req.date.strftime('%a') }}</div>
+                                <div class="text-2xl font-bold text-gray-900">{{ req.date.day }}</div>
+                                <div class="text-xs text-gray-500">Tháng {{ req.date.month }}</div>
+                            </div>
+                            
+                            <div class="flex-1 w-full">
+                                <h4 class="font-semibold text-gray-900 mb-1">{{ req.subject }}</h4>
+                                <p class="text-sm text-gray-600 mb-2 font-medium">{{ req.studentName }}</p>
+                                <div class="flex items-center gap-4 text-sm text-gray-500 mb-3">
+                                    <span class="flex items-center gap-1">
+                                        <i data-lucide="clock" class="h-3 w-3"></i>
+                                        {{ req.startTime }} - {{ req.endTime }}
+                                    </span>
+                                </div>
+                                {% if req.notes %}
+                                <div class="text-sm text-gray-600 p-2 bg-white border border-gray-200 rounded">
+                                    <span class="text-gray-400 font-medium">Ghi chú:</span> {{ req.notes }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="flex flex-row md:flex-col gap-2 w-full md:w-auto mt-2 md:mt-0">
+                                <button class="flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors w-full md:w-auto">
+                                    <i data-lucide="check-circle" class="h-4 w-4"></i> Chấp nhận
+                                </button>
+                                <button class="flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-red-600 border border-gray-200 text-sm font-medium py-2 px-4 rounded transition-colors w-full md:w-auto">
+                                    <i data-lucide="x-circle" class="h-4 w-4"></i> Từ chối
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-12 text-gray-500">
+                            <i data-lucide="calendar" class="h-16 w-16 mx-auto mb-4 text-gray-300"></i>
+                            <p>Không có yêu cầu đặt lịch mới</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tab Content: Upcoming -->
+            <div id="content-upcoming" class="hidden p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Lịch dạy sắp tới</h3>
+                        <p class="text-sm text-gray-500">Các buổi học đã được xác nhận</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    {% if upcoming_sessions %}
+                        {% for session in upcoming_sessions %}
+                        <div class="flex items-start gap-4 p-4 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                            <div class="flex-shrink-0 w-16 text-center">
+                                <div class="text-sm text-gray-500 font-medium">{{ session.date.strftime('%a') }}</div>
+                                <div class="text-2xl font-bold text-gray-900">{{ session.date.day }}</div>
+                                <div class="text-xs text-gray-500">Tháng {{ session.date.month }}</div>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-1">{{ session.subject }}</h4>
+                                <p class="text-sm text-gray-600 mb-2">{{ session.studentName }}</p>
+                                <div class="flex items-center gap-4 text-sm text-gray-500">
+                                    <span class="flex items-center gap-1">
+                                        <i data-lucide="clock" class="h-3 w-3"></i>
+                                        {{ session.startTime }} - {{ session.endTime }}
+                                    </span>
+                                    {% if session.location %}
+                                    <span class="flex items-center gap-1">
+                                        <i data-lucide="map-pin" class="h-3 w-3"></i>
+                                        {{ session.location }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div>
+                                <span class="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                                    Đã xác nhận
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-12 text-gray-500">
+                            <i data-lucide="calendar" class="h-16 w-16 mx-auto mb-4 text-gray-300"></i>
+                            <p>Chưa có lịch dạy sắp tới</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Simple Tab Switching Logic
+        function openTab(tabName) {
+            // Hide all contents
+            document.getElementById('content-pending').classList.add('hidden');
+            document.getElementById('content-upcoming').classList.add('hidden');
+            
+            // Remove active styles from all tabs
+            const tabs = ['pending', 'upcoming'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+                btn.classList.add('text-gray-500', 'hover:text-gray-700');
+            });
+
+            // Show selected content
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            
+            // Add active styles to selected tab
+            const activeBtn = document.getElementById(`tab-${tabName}`);
+            activeBtn.classList.remove('text-gray-500', 'hover:text-gray-700');
+            activeBtn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600', 'bg-blue-50');
+        }
+    </script>
+</body>
+</html> 

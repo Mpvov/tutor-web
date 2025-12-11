@@ -1,306 +1,453 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Đăng ký chương trình Tutor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+      body {
+        font-family: "Inter", sans-serif;
+      }
     </style>
-</head>
-<body class="bg-gray-50 min-h-screen">
-
+  </head>
+  <body class="bg-gray-50 min-h-screen">
     <!-- Include Reusable Header -->
     {% include 'header.html' %}
 
     <div class="container mx-auto px-4 py-8 max-w-5xl">
-        
-        <!-- STEP 1: PROGRAM LIST VIEW -->
-        <div id="view-list" class="block">
-            <div class="text-center mb-10">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-50 rounded-2xl mb-4 shadow-sm border border-blue-100">
-                    <i data-lucide="graduation-cap" class="w-8 h-8 text-blue-600"></i>
-                </div>
-                <h1 class="text-3xl font-bold text-blue-900 mb-2">Đăng ký chương trình Tutor</h1>
-                <p class="text-gray-600 max-w-lg mx-auto">Chọn chương trình học tập phù hợp để bắt đầu hành trình của bạn tại Bách Khoa.</p>
-            </div>
-
-            <div class="grid gap-6">
-                {% if not programs %}
-                    <div class="p-8 bg-white rounded-xl shadow-sm border border-dashed border-gray-300 text-center">
-                        <div class="mx-auto w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mb-3">
-                            <i data-lucide="inbox" class="w-6 h-6 text-gray-400"></i>
-                        </div>
-                        <h3 class="text-lg font-medium text-gray-900">Chưa có chương trình</h3>
-                        <p class="text-gray-500 mt-1">Hiện tại chưa có chương trình nào mở đăng ký.</p>
-                    </div>
-                {% else %}
-                    {% for p in programs %}
-                    <div class="group bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-200 transition-all duration-200">
-                        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                            <div class="flex-1">
-                                <div class="flex items-center gap-3 mb-2">
-                                    <h3 class="text-xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors">{{ p.name }}</h3>
-                                    <span class="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-                                        {{ p.semester }}
-                                    </span>
-                                </div>
-                                <p class="text-gray-600 text-sm leading-relaxed">
-                                    {{ p.description if p.description else 'Chương trình hỗ trợ học tập chính quy được tổ chức bởi trường Đại học Bách Khoa, nhằm giúp sinh viên củng cố kiến thức nền tảng.' }}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="mt-6 flex items-center justify-between pt-4 border-t border-gray-50">
-                            <div class="flex items-center gap-4 text-sm text-gray-500">
-                                <div class="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-md">
-                                    <i data-lucide="circle-dot" class="h-3 w-3 text-green-500"></i>
-                                    <span class="font-medium text-gray-700">Đang mở</span>
-                                </div>
-                            </div>
-                            <button 
-                                onclick="selectProgram({{ p.id }}, '{{ p.name }}')"
-                                class="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-blue-600 h-10 px-5 transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg transform active:scale-95"
-                            >
-                                Đăng ký ngay
-                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-            </div>
-
-            <div class="mt-12 text-center">
-                <a href="/dashboard" class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors">
-                    <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                    Quay lại Dashboard
-                </a>
-            </div>
+      <!-- STEP 1: PROGRAM LIST VIEW -->
+      <div id="view-list" class="block">
+        <div class="text-center mb-10">
+          <div
+            class="inline-flex items-center justify-center w-16 h-16 bg-blue-50 rounded-2xl mb-4 shadow-sm border border-blue-100"
+          >
+            <i data-lucide="graduation-cap" class="w-8 h-8 text-blue-600"></i>
+          </div>
+          <h1 class="text-3xl font-bold text-blue-900 mb-2">
+            Đăng ký chương trình Tutor
+          </h1>
+          <p class="text-gray-600 max-w-lg mx-auto">
+            Chọn chương trình học tập phù hợp để bắt đầu hành trình của bạn tại
+            Bách Khoa.
+          </p>
         </div>
 
-        <!-- STEP 2: REGISTRATION FORM VIEW -->
-        <div id="view-form" class="hidden flex justify-center">
-            <div class="w-full max-w-2xl bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                <div class="bg-gray-50/50 p-6 border-b border-gray-100">
-                    <div class="flex items-center gap-3 mb-2">
-                        <button onclick="switchView('list')" class="p-1 hover:bg-gray-200 rounded-full transition-colors">
-                            <i data-lucide="chevron-left" class="w-5 h-5 text-gray-500"></i>
-                        </button>
-                        <h2 class="text-xl font-bold text-gray-900">Phiếu đăng ký</h2>
-                    </div>
-                    <p class="text-sm text-gray-500 ml-9">Bạn đang đăng ký tham gia: <span id="selected-program-name" class="font-semibold text-blue-700"></span></p>
-                </div>
-                
-                <div class="p-8 space-y-6">
-                    <input type="hidden" id="program-id-input">
-                    
-                    <div class="space-y-3">
-                        <label for="subjects" class="text-sm font-semibold text-gray-700">Môn học cần hỗ trợ</label>
-                        <div class="relative">
-                            <i data-lucide="book-open" class="absolute top-3 left-3 w-5 h-5 text-gray-400"></i>
-                            <textarea id="subjects" rows="2" placeholder="Ví dụ: Cấu trúc dữ liệu, Giải tích 1..." class="pl-10 flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <label for="difficulties" class="text-sm font-semibold text-gray-700">Khó khăn hiện tại</label>
-                        <div class="relative">
-                            <i data-lucide="alert-circle" class="absolute top-3 left-3 w-5 h-5 text-gray-400"></i>
-                            <textarea id="difficulties" rows="2" placeholder="Mô tả những khó khăn bạn đang gặp phải..." class="pl-10 flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <label for="goals" class="text-sm font-semibold text-gray-700">Mục tiêu học tập</label>
-                        <div class="relative">
-                            <i data-lucide="target" class="absolute top-3 left-3 w-5 h-5 text-gray-400"></i>
-                            <textarea id="goals" rows="2" placeholder="Ví dụ: Nâng cao điểm số, qua môn..." class="pl-10 flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
-                        <button onclick="switchView('list')" class="inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 h-10 px-5 transition-colors">
-                            Hủy bỏ
-                        </button>
-                        <button onclick="handleSubmit()" id="submit-btn" class="inline-flex items-center justify-center rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 shadow-sm hover:shadow-md transition-all">
-                            Xác nhận đăng ký
-                        </button>
-                    </div>
-                </div>
+        <div class="grid gap-6">
+          {% if not programs %}
+          <div
+            class="p-8 bg-white rounded-xl shadow-sm border border-dashed border-gray-300 text-center"
+          >
+            <div
+              class="mx-auto w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mb-3"
+            >
+              <i data-lucide="inbox" class="w-6 h-6 text-gray-400"></i>
             </div>
-        </div>
-
-        <!-- STEP 3: SUCCESS VIEW -->
-        <div id="view-success" class="hidden flex items-center justify-center py-12">
-            <div class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 text-center p-8 overflow-hidden relative">
-                <!-- Decorative background elements -->
-                <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"></div>
-                
-                <div class="mx-auto w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6 animate-bounce">
-                    <i data-lucide="check" class="w-10 h-10 text-green-500"></i>
+            <h3 class="text-lg font-medium text-gray-900">
+              Chưa có chương trình
+            </h3>
+            <p class="text-gray-500 mt-1">
+              Hiện tại chưa có chương trình nào mở đăng ký.
+            </p>
+          </div>
+          {% else %} {% for p in programs %}
+          <div
+            class="group bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-blue-200 transition-all duration-200"
+          >
+            <div
+              class="flex flex-col md:flex-row md:items-start md:justify-between gap-4"
+            >
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                  <h3
+                    class="text-xl font-bold text-gray-900 group-hover:text-blue-700 transition-colors"
+                  >
+                    {{ p.name }}
+                  </h3>
+                  <span
+                    class="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700"
+                  >
+                    {{ p.semester }}
+                  </span>
                 </div>
-                
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">Đăng ký thành công!</h2>
-                <p class="text-gray-600 mb-8">
-                    Bạn đã đăng ký thành công chương trình <br>
-                    <span id="success-program-name" class="font-semibold text-blue-600"></span>
+                <p class="text-gray-600 text-sm leading-relaxed">
+                  {{ p.description if p.description else 'Chương trình hỗ trợ
+                  học tập chính quy được tổ chức bởi trường Đại học Bách Khoa,
+                  nhằm giúp sinh viên củng cố kiến thức nền tảng.' }}
                 </p>
-
-                <div class="bg-gray-50 rounded-xl p-4 text-left text-sm text-gray-600 mb-8">
-                    <p class="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <i data-lucide="info" class="w-4 h-4"></i> Tiếp theo:
-                    </p>
-                    <ul class="space-y-2 pl-1">
-                        <li class="flex items-start gap-2">
-                            <div class="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5"></div>
-                            <span>Hệ thống sẽ duyệt hồ sơ của bạn.</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <div class="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5"></div>
-                            <span>Tìm kiếm Tutor phù hợp trong Dashboard.</span>
-                        </li>
-                    </ul>
-                </div>
-
-                <a href="/dashboard" class="w-full inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 h-11 px-4 transition-all">
-                    Quay về Dashboard
-                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </a>
+              </div>
             </div>
+
+            <div
+              class="mt-6 flex items-center justify-between pt-4 border-t border-gray-50"
+            >
+              <div class="flex items-center gap-4 text-sm text-gray-500">
+                <div
+                  class="flex items-center gap-1.5 px-2 py-1 bg-gray-50 rounded-md"
+                >
+                  <i
+                    data-lucide="circle-dot"
+                    class="h-3 w-3 text-green-500"
+                  ></i>
+                  <span class="font-medium text-gray-700">Đang mở</span>
+                </div>
+              </div>
+              <button
+                onclick="selectProgram('{{ p.id }}', '{{ p.name }}')"
+                class="inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-blue-600 h-10 px-5 transition-all duration-200 shadow-sm hover:shadow-blue-200 hover:shadow-lg transform active:scale-95"
+              >
+                Đăng ký ngay
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+          {% endfor %} {% endif %}
         </div>
 
-        <!-- Custom Modal Component -->
-        <div id="custom-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
-            <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
-                <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-                    <div class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-                        <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-                            <div class="sm:flex sm:items-start">
-                                <div id="modal-icon-bg" class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                                    <i id="modal-icon" data-lucide="info" class="h-6 w-6 text-blue-600"></i>
-                                </div>
-                                <div class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
-                                    <h3 class="text-base font-semibold leading-6 text-gray-900" id="modal-title">Thông báo</h3>
-                                    <div class="mt-2">
-                                        <p class="text-sm text-gray-500" id="modal-message">Nội dung thông báo...</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
-                            <button type="button" id="modal-confirm-btn" class="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto" onclick="closeModal()">Đóng</button>
-                        </div>
+        <div class="mt-12 text-center">
+          <a
+            href="/dashboard"
+            class="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            Quay lại Dashboard
+          </a>
+        </div>
+      </div>
+
+      <!-- STEP 2: REGISTRATION FORM VIEW -->
+      <div id="view-form" class="hidden flex justify-center">
+        <div
+          class="w-full max-w-2xl bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+        >
+          <div class="bg-gray-50/50 p-6 border-b border-gray-100">
+            <div class="flex items-center gap-3 mb-2">
+              <button
+                onclick="switchView('list')"
+                class="p-1 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <i data-lucide="chevron-left" class="w-5 h-5 text-gray-500"></i>
+              </button>
+              <h2 class="text-xl font-bold text-gray-900">Phiếu đăng ký</h2>
+            </div>
+            <p class="text-sm text-gray-500 ml-9">
+              Bạn đang đăng ký tham gia:
+              <span
+                id="selected-program-name"
+                class="font-semibold text-blue-700"
+              ></span>
+            </p>
+          </div>
+
+          <div class="p-8 space-y-6">
+            <input type="hidden" id="program-id-input" />
+
+            <div class="space-y-3">
+              <label for="subjects" class="text-sm font-semibold text-gray-700"
+                >Môn học cần hỗ trợ</label
+              >
+              <div class="relative">
+                <i
+                  data-lucide="book-open"
+                  class="absolute top-3 left-3 w-5 h-5 text-gray-400"
+                ></i>
+                <textarea
+                  id="subjects"
+                  rows="2"
+                  placeholder="Ví dụ: Cấu trúc dữ liệu, Giải tích 1..."
+                  class="pl-10 flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <label
+                for="difficulties"
+                class="text-sm font-semibold text-gray-700"
+                >Khó khăn hiện tại</label
+              >
+              <div class="relative">
+                <i
+                  data-lucide="alert-circle"
+                  class="absolute top-3 left-3 w-5 h-5 text-gray-400"
+                ></i>
+                <textarea
+                  id="difficulties"
+                  rows="2"
+                  placeholder="Mô tả những khó khăn bạn đang gặp phải..."
+                  class="pl-10 flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <label for="goals" class="text-sm font-semibold text-gray-700"
+                >Mục tiêu học tập</label
+              >
+              <div class="relative">
+                <i
+                  data-lucide="target"
+                  class="absolute top-3 left-3 w-5 h-5 text-gray-400"
+                ></i>
+                <textarea
+                  id="goals"
+                  rows="2"
+                  placeholder="Ví dụ: Nâng cao điểm số, qua môn..."
+                  class="pl-10 flex w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                ></textarea>
+              </div>
+            </div>
+
+            <div
+              class="pt-4 border-t border-gray-100 flex items-center justify-end gap-3"
+            >
+              <button
+                onclick="switchView('list')"
+                class="inline-flex items-center justify-center rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 h-10 px-5 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                onclick="handleSubmit()"
+                id="submit-btn"
+                class="inline-flex items-center justify-center rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 h-10 px-6 shadow-sm hover:shadow-md transition-all"
+              >
+                Xác nhận đăng ký
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: SUCCESS VIEW -->
+      <div
+        id="view-success"
+        class="hidden flex items-center justify-center py-12"
+      >
+        <div
+          class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 text-center p-8 overflow-hidden relative"
+        >
+          <!-- Decorative background elements -->
+          <div
+            class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-400 to-blue-500"
+          ></div>
+
+          <div
+            class="mx-auto w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mb-6 animate-bounce"
+          >
+            <i data-lucide="check" class="w-10 h-10 text-green-500"></i>
+          </div>
+
+          <h2 class="text-2xl font-bold text-gray-900 mb-2">
+            Đăng ký thành công!
+          </h2>
+          <p class="text-gray-600 mb-8">
+            Bạn đã đăng ký thành công chương trình <br />
+            <span
+              id="success-program-name"
+              class="font-semibold text-blue-600"
+            ></span>
+          </p>
+
+          <div
+            class="bg-gray-50 rounded-xl p-4 text-left text-sm text-gray-600 mb-8"
+          >
+            <p class="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+              <i data-lucide="info" class="w-4 h-4"></i> Tiếp theo:
+            </p>
+            <ul class="space-y-2 pl-1">
+              <li class="flex items-start gap-2">
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5"></div>
+                <span>Hệ thống sẽ duyệt hồ sơ của bạn.</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5"></div>
+                <span>Tìm kiếm Tutor phù hợp trong Dashboard.</span>
+              </li>
+            </ul>
+          </div>
+
+          <a
+            href="/dashboard"
+            class="w-full inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold bg-gray-900 text-white hover:bg-gray-800 h-11 px-4 transition-all"
+          >
+            Quay về Dashboard
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Custom Modal Component -->
+      <div
+        id="custom-modal"
+        class="fixed inset-0 z-[60] hidden"
+        aria-labelledby="modal-title"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div
+          class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          onclick="closeModal()"
+        ></div>
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+          <div
+            class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0"
+          >
+            <div
+              class="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg"
+            >
+              <div class="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                  <div
+                    id="modal-icon-bg"
+                    class="mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10"
+                  >
+                    <i
+                      id="modal-icon"
+                      data-lucide="info"
+                      class="h-6 w-6 text-blue-600"
+                    ></i>
+                  </div>
+                  <div
+                    class="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full"
+                  >
+                    <h3
+                      class="text-base font-semibold leading-6 text-gray-900"
+                      id="modal-title"
+                    >
+                      Thông báo
+                    </h3>
+                    <div class="mt-2">
+                      <p class="text-sm text-gray-500" id="modal-message">
+                        Nội dung thông báo...
+                      </p>
                     </div>
+                  </div>
                 </div>
+              </div>
+              <div
+                class="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6"
+              >
+                <button
+                  type="button"
+                  id="modal-confirm-btn"
+                  class="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto"
+                  onclick="closeModal()"
+                >
+                  Đóng
+                </button>
+              </div>
             </div>
+          </div>
         </div>
-
+      </div>
     </div>
 
     <!-- JavaScript Logic -->
     <script>
-        // Initialize Lucide Icons
+      // Initialize Lucide Icons
+      lucide.createIcons();
+
+      // HEADER SCROLL LOGIC
+      window.addEventListener("scroll", () => {
+        const header = document.getElementById("main-header");
+        if (header) {
+          if (window.scrollY > 50) {
+            header.classList.remove("-translate-y-full");
+          } else {
+            header.classList.add("-translate-y-full");
+          }
+        }
+      });
+
+      // --- Modal Logic ---
+      function showModal(title, message, type = "info") {
+        document.getElementById("modal-title").innerText = title;
+        document.getElementById("modal-message").innerText = message;
+
+        const iconBg = document.getElementById("modal-icon-bg");
+        const icon = document.getElementById("modal-icon");
+        const confirmBtn = document.getElementById("modal-confirm-btn");
+
+        // Reset
+        iconBg.className =
+          "mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10";
+        confirmBtn.className =
+          "inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto transition-colors";
+
+        if (type === "danger") {
+          iconBg.classList.add("bg-red-100");
+          icon.classList.replace("text-blue-600", "text-red-600");
+          icon.setAttribute("data-lucide", "alert-triangle");
+          confirmBtn.classList.add("bg-red-600", "hover:bg-red-500");
+        } else {
+          iconBg.classList.add("bg-blue-100");
+          icon.classList.replace("text-red-600", "text-blue-600");
+          icon.setAttribute("data-lucide", "info");
+          confirmBtn.classList.add("bg-blue-600", "hover:bg-blue-500");
+        }
         lucide.createIcons();
+        document.getElementById("custom-modal").classList.remove("hidden");
+      }
 
-        // HEADER SCROLL LOGIC
-        window.addEventListener('scroll', () => {
-            const header = document.getElementById('main-header');
-            if(header) {
-                if (window.scrollY > 50) {
-                    header.classList.remove('-translate-y-full');
-                } else {
-                    header.classList.add('-translate-y-full');
-                }
-            }
-        });
+      function closeModal() {
+        document.getElementById("custom-modal").classList.add("hidden");
+      }
 
-        // --- Modal Logic ---
-        function showModal(title, message, type = 'info') {
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-message').innerText = message;
-            
-            const iconBg = document.getElementById('modal-icon-bg');
-            const icon = document.getElementById('modal-icon');
-            const confirmBtn = document.getElementById('modal-confirm-btn');
+      function switchView(viewName) {
+        document.getElementById("view-list").classList.add("hidden");
+        document.getElementById("view-form").classList.add("hidden");
+        document.getElementById("view-success").classList.add("hidden");
 
-            // Reset
-            iconBg.className = "mx-auto flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full sm:mx-0 sm:h-10 sm:w-10";
-            confirmBtn.className = "inline-flex w-full justify-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm sm:ml-3 sm:w-auto transition-colors";
+        const newView = document.getElementById(`view-${viewName}`);
+        newView.classList.remove("hidden");
 
-            if (type === 'danger') {
-                iconBg.classList.add('bg-red-100');
-                icon.classList.replace('text-blue-600', 'text-red-600');
-                icon.setAttribute('data-lucide', 'alert-triangle');
-                confirmBtn.classList.add('bg-red-600', 'hover:bg-red-500');
-            } else {
-                iconBg.classList.add('bg-blue-100');
-                icon.classList.replace('text-red-600', 'text-blue-600');
-                icon.setAttribute('data-lucide', 'info');
-                confirmBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
-            }
+        if (viewName === "list")
+          window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      function selectProgram(id, name) {
+        document.getElementById("program-id-input").value = id;
+        document.getElementById("selected-program-name").innerText = name;
+        document.getElementById("success-program-name").innerText = name;
+        switchView("form");
+      }
+
+      async function handleSubmit() {
+        const btn = document.getElementById("submit-btn");
+        const originalText = btn.innerHTML;
+        btn.innerHTML =
+          '<i data-lucide="loader-2" class="w-4 h-4 animate-spin mr-2"></i> Đang xử lý...';
+        lucide.createIcons();
+        btn.disabled = true;
+
+        const programId = document.getElementById("program-id-input").value;
+
+        try {
+          const res = await fetch("/api/register_program", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ program_id: parseInt(programId) }),
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            switchView("success");
             lucide.createIcons();
-            document.getElementById('custom-modal').classList.remove('hidden');
+          } else {
+            showModal("Lỗi", data.message, "danger");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+          }
+        } catch (error) {
+          showModal("Lỗi mạng", "Không thể kết nối đến máy chủ", "danger");
+          btn.innerHTML = originalText;
+          btn.disabled = false;
         }
-
-        function closeModal() {
-            document.getElementById('custom-modal').classList.add('hidden');
-        }
-
-        function switchView(viewName) {
-            document.getElementById('view-list').classList.add('hidden');
-            document.getElementById('view-form').classList.add('hidden');
-            document.getElementById('view-success').classList.add('hidden');
-            
-            const newView = document.getElementById(`view-${viewName}`);
-            newView.classList.remove('hidden');
-            
-            if(viewName === 'list') window.scrollTo({top: 0, behavior: 'smooth'});
-        }
-
-        function selectProgram(id, name) {
-            document.getElementById('program-id-input').value = id;
-            document.getElementById('selected-program-name').innerText = name;
-            document.getElementById('success-program-name').innerText = name;
-            switchView('form');
-        }
-
-        async function handleSubmit() {
-            const btn = document.getElementById('submit-btn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin mr-2"></i> Đang xử lý...';
-            lucide.createIcons(); 
-            btn.disabled = true;
-
-            const programId = document.getElementById('program-id-input').value;
-
-            try {
-                const res = await fetch('/api/register_program', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ program_id: parseInt(programId) })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    switchView('success');
-                    lucide.createIcons();
-                } else {
-                    showModal("Lỗi", data.message, 'danger');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
-                }
-            } catch (error) {
-                showModal("Lỗi mạng", "Không thể kết nối đến máy chủ", 'danger');
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }
-        }
+      }
     </script>
-</body>
+  </body>
 </html>

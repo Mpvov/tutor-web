@@ -3,11 +3,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta
-
+from app.models import TutorRequest, RequestStatus, User
 from app.database import get_db
-from app.services.services import AuthService, ScheduleService, CoordinationService, SysManagementService, MatchingService
+from app.services.services import AuthService, ScheduleService, CoordinationService, SysManagementService, MatchingService, BookingService
 import random
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -36,9 +36,14 @@ class ProgramRegRequest(BaseModel):
 
 class BookRequest(BaseModel):
     slot_id: int
+    note: Optional[str] = None
 
 class TutorSelectRequest(BaseModel):
     tutor_id: int
+
+class TutorRespondBooking(BaseModel):
+    req_id: int
+    action: str # 'accept' hoặc 'reject'
 
 # --- ROUTES ---
 
@@ -90,18 +95,87 @@ def api_find_tutor(request: Request, db: Session = Depends(get_db)):
     
     return enriched_tutors
 
+class TutorRespondRequest(BaseModel):
+    request_id: int
+    accept: bool
+    reason: str = None  # Bắt buộc nếu từ chối
+
+# API: Sinh viên gửi yêu cầu chọn tutor (đã có, chỉ đảm bảo đúng)
 @router.post("/api/select_tutor")
 def api_select_tutor(req: TutorSelectRequest, request: Request, db: Session = Depends(get_db)):
     user = require_role(request, 'student')
     match_service = MatchingService(db)
     
-    # Logic:
-    # 1. Create connection request in DB (Mocked)
-    # 2. Send notification to Tutor (Mocked)
     if match_service.select_tutor(user['id'], req.tutor_id):
-        return {"success": True, "message": "Đã gửi yêu cầu đến Tutor. Vui lòng chờ xác nhận."}
-    return {"success": False, "message": "Có lỗi xảy ra."}
-@router.get("/api/logout")
+        return {"success": True, "message": "Đã gửi yêu cầu đến tutor thành công!"}
+    else:
+        return {"success": False, "message": "Không thể gửi. Bạn đã gửi yêu cầu này rồi hoặc tutor không tồn tại."}
+
+# API: Tutor lấy danh sách yêu cầu đang chờ duyệt
+@router.get("/api/tutor/pending_requests")
+def get_pending_requests(request: Request, db: Session = Depends(get_db)):
+    user = require_role(request, 'tutor')
+    match_service = MatchingService(db)
+    
+    requests = match_service.get_pending_requests_for_tutor(user['id'])
+    
+    return [{
+        "id": r.id,
+        "student_name": r.student.ho_ten,
+        "student_mssv": r.student.mssv,
+        "requested_at": r.requested_at.strftime("%d/%m/%Y %H:%M")
+    } for r in requests]
+
+# API: Tutor phản hồi yêu cầu (Đồng ý / Từ chối)
+@router.post("/api/tutor/respond_request")
+def respond_request(payload: TutorRespondRequest, request: Request, db: Session = Depends(get_db)):
+    user = require_role(request, 'tutor')
+    match_service = MatchingService(db)
+    
+    if not payload.accept and (not payload.reason or payload.reason.strip() == ""):
+        return {"success": False, "message": "Vui lòng nhập lý do từ chối!"}
+    
+    if match_service.respond_to_request(payload.request_id, user['id'], payload.accept, payload.reason):
+        action = "đồng ý" if payload.accept else "từ chối"
+        return {"success": True, "message": f"Đã {action} yêu cầu thành công!"}
+    else:
+        return {"success": False, "message": "Yêu cầu không tồn tại hoặc đã được xử lý."}
+
+# API: Sinh viên xem trạng thái yêu cầu của mình
+@router.get("/api/my_tutor_requests")
+def get_my_requests(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user.get("role") != "student":
+        return []
+
+    # Lấy tất cả yêu cầu của sinh viên này, join với bảng users để lấy tên + mssv tutor
+    requests = (
+        db.query(TutorRequest)
+        .join(User, User.id == TutorRequest.tutor_id)
+        .filter(TutorRequest.student_id == user["id"])
+        .order_by(TutorRequest.requested_at.desc())
+        .all()
+    )
+
+    result = []
+    for r in requests:
+        result.append({
+            "id": r.id,
+            "tutor_name": r.tutor.ho_ten if r.tutor else "Tutor không tồn tại",
+            "tutor_mssv": r.tutor.mssv if r.tutor else "",
+            "status": r.status.value,  # pending / accepted / rejected
+            "status_text": (
+                "Đang chờ phản hồi" if r.status == RequestStatus.pending else
+                "Đã chấp nhận" if r.status == RequestStatus.accepted else
+                "Bị từ chối"
+            ),
+            "requested_at": r.requested_at.strftime("%d/%m/%Y %H:%M"),
+            "responded_at": r.responded_at.strftime("%d/%m/%Y %H:%M") if r.responded_at else None,
+            "reject_reason": r.reject_reason or None
+        })
+
+    return result
+@router.post("/api/logout")
 def logout(request: Request):
     request.session.clear()
     return {"success": True}
@@ -129,46 +203,51 @@ def register_program(req: ProgramRegRequest, request: Request, db: Session = Dep
 # --- Tutor Routes ---
 
 @router.get("/tutor/dashboard", response_class=HTMLResponse)
-def view_tutor_dashboard(request: Request):
+def view_tutor_dashboard(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
     if not user or user['role'] != 'tutor': return RedirectResponse("/")
     
-    # MOCK DATA from your React component
-    # In a real app, you would fetch this from ScheduleService
-    pending_requests = [
-        {
-            "id": 1,
-            "date": datetime.now() + timedelta(days=1),
-            "subject": "Giải tích 1",
-            "studentName": "Nguyễn Văn A",
-            "startTime": "08:00",
-            "endTime": "10:00",
-            "notes": "Em cần hỏi về tích phân suy rộng",
-            "status": "pending"
-        },
-        {
-            "id": 2,
-            "date": datetime.now() + timedelta(days=2),
-            "subject": "Vật lý đại cương",
-            "studentName": "Trần Thị B",
-            "startTime": "14:00",
-            "endTime": "16:00",
-            "status": "pending"
-        }
-    ]
+    booking_service = BookingService(db)
+
+    # Lấy Yêu cầu đang chờ
+    raw_pending_requests = booking_service.tutor_get_pending_requests(user['id'])
+    pending_requests = []
     
-    upcoming_sessions = [
-        {
-            "id": 3,
-            "date": datetime.now() + timedelta(days=3),
-            "subject": "Đại số tuyến tính",
-            "studentName": "Lê Văn C",
-            "startTime": "09:00",
-            "endTime": "11:00",
-            "status": "confirmed",
-            "location": "H6-301"
-        }
-    ]
+    for r in raw_pending_requests:
+        if r.slot and r.student:
+            start_time = r.slot.start_time
+            end_time = r.slot.end_time
+            
+            pending_requests.append({
+                "id": r.id,
+                "date": start_time,
+                "studentName": r.student.ho_ten,
+                "startTime": start_time.strftime("%H:%M"),
+                "endTime": end_time.strftime("%H:%M"),
+                "notes": r.note or "",
+                "status": r.status, 
+                "slot_id": r.slot.id
+            })
+
+    # Lấy Các buổi học sắp tới
+    raw_upcoming_sessions = booking_service.tutor_get_upcoming_sessions(user['id'])
+    upcoming_sessions = []
+    
+    for r in raw_upcoming_sessions:
+        if r.slot and r.student:
+            start_time = r.slot.start_time
+            end_time = r.slot.end_time
+            
+            upcoming_sessions.append({
+                "id": r.id,
+                "date": start_time,
+                "studentName": r.student.ho_ten,
+                "startTime": start_time.strftime("%H:%M"),
+                "endTime": end_time.strftime("%H:%M"),
+                "status": r.status, # "accepted"
+                "location": "Phòng học online", # MOCK DATA
+                "slot_id": r.slot.id
+            })
 
     return templates.TemplateResponse("tutor_dashboard.html", {
         "request": request, 
@@ -242,3 +321,173 @@ def view_coord(request: Request, db: Session = Depends(get_db)):
     if not user or user['role'] != 'coordinator': return RedirectResponse("/")
     coord = CoordinationService(db)
     return templates.TemplateResponse("coordinator_dashboard.html", {"request": request, "user": user, "programs": coord.get_available_programs()})
+
+
+@router.get("/student/schedule", response_class=HTMLResponse)
+def view_student_schedule(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user['role'] != 'student':
+        return RedirectResponse("/")
+    
+    booking_service = BookingService(db)
+    raw_requests = booking_service.get_student_bookings(user["id"])
+    
+    requests_data = []
+    for req in raw_requests:
+        start_time = req.slot.start_time if req.slot else None
+        end_time = req.slot.end_time if req.slot else None
+        
+        if start_time and end_time:
+            requests_data.append({
+                "id": req.id,
+                "status": req.status,
+                "note": req.note,
+                "start": start_time.strftime("%H:%M"),
+                "end": end_time.strftime("%H:%M"),
+                "start_time": start_time,
+                "end_time": end_time,
+                "tutor_name": req.tutor.ho_ten if req.tutor else "N/A"
+            })
+
+    return templates.TemplateResponse("student_schedule.html", {"request": request, "user": user, "requests": requests_data})
+
+
+@router.get("/api/student/schedule")
+def student_schedule(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user["role"] != "student":
+        raise HTTPException(403)
+
+    service = BookingService(db)
+    raw_requests = service.get_student_bookings(user['id']) 
+    
+    events = []
+    for req in raw_requests:
+        if req.slot and req.tutor:
+            # FullCalendar yêu cầu format thời gian theo chuẩn ISO 8601
+            start_iso = req.slot.start_time.isoformat()
+            end_iso = req.slot.end_time.isoformat()
+            
+            if req.status == 'pending':
+                status_display = 'pending'
+                textColor = '#a16225'
+            elif req.status == 'accepted':
+                status_display = 'accepted'
+                textColor = '#15803d'
+            else:
+                continue # Bỏ qua các yêu cầu đã bị từ chối ('rejected')
+
+            events.append({
+                'title': f"{req.tutor.ho_ten}",
+                'start': start_iso,
+                'end': end_iso,
+                'status': status_display,
+                'textColor': textColor
+            })
+            
+    return events
+
+
+# =========================
+# STUDENT - Lấy lịch rảnh tutor
+# =========================
+@router.get("/api/student/slots")
+def get_slots(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user["role"] != "student":
+        raise HTTPException(403)
+
+    service = BookingService(db)
+    slots = service.get_slots_of_tutors(user["id"])
+
+    return {"slots": slots or []}
+
+
+# =========================
+# STUDENT - Gửi yêu cầu đặt lịch
+# =========================
+@router.post("/api/student/book")
+async def book_slot(req: BookRequest, request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user["role"] != "student":
+        raise HTTPException(403)
+
+    try:
+        service = BookingService(db)
+        r = service.create_booking_request(user["id"], req.slot_id, req.note)
+
+        return {"message": "Yêu cầu đặt lịch đã được gửi", "request": r}
+    
+    except HTTPException as e:
+        raise e
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================
+# STUDENT - Xem lịch đã gửi
+# =========================
+@router.get("/api/student/bookings")
+def student_bookings(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user["role"] != "student":
+        raise HTTPException(403)
+
+    service = BookingService(db)
+    bookings = service.get_student_bookings(user["id"])
+
+    return {"bookings": bookings}
+
+
+# =========================
+# STUDENT - Hủy yêu cầu pending
+# =========================
+@router.delete("/api/student/booking/{req_id}")
+def cancel_booking(req_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user["role"] != "student":
+        raise HTTPException(403)
+
+    service = BookingService(db)
+    service.cancel_booking(user["id"], req_id)
+    return {"message": "Đã hủy yêu cầu đặt lịch"}
+
+
+# =========================
+# TUTOR - Lấy request đặt lịch
+# =========================
+@router.get("/api/tutor/requests")
+def tutor_requests(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user["role"] != "tutor":
+        raise HTTPException(403)
+
+    service = BookingService(db)
+    requests = service.tutor_get_requests(user["id"])
+
+    return {"requests": requests}
+
+
+# =========================
+# TUTOR - accept hoặc reject
+# =========================
+@router.post("/api/tutor/requests/respond")
+def respond_booking(req: TutorRespondBooking, request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user["role"] != "tutor":
+        raise HTTPException(403)
+    
+    service = BookingService(db)
+
+    try:
+        updated_req = service.tutor_respond(user["id"], req.req_id, req.action)
+        
+        if updated_req:
+            message = "Đã chấp nhận yêu cầu đặt lịch." if req.action == 'accept' else "Đã từ chối yêu cầu đặt lịch."
+            return {"message": message, "request_id": updated_req.id}
+        else:
+            raise HTTPException(404, detail="Yêu cầu không tồn tại.")
+            
+    except Exception as e:
+        raise HTTPException(400, detail=str(e))

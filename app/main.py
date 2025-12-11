@@ -71,3 +71,17 @@ async def dashboard(request: Request):
         return RedirectResponse("/coordinator/dashboard")
         
     return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
+
+@app.get("/my_tutors", response_class=HTMLResponse)
+async def my_tutors_page(request: Request):
+    """
+    Trang "Tutor của tôi" – chỉ sinh viên được vào
+    """
+    user = request.session.get("user")
+    if not user or user.get("role") != "student":
+        return RedirectResponse("/")  # hoặc "/dashboard"
+    
+    return templates.TemplateResponse(
+        "my_tutors.html",
+        {"request": request, "user": user}
+    )

@@ -1,9 +1,12 @@
 from sqlalchemy.orm import Session
-from datetime import datetime
-from app.repositories.repos import UserRepository, ScheduleRepository, ProgramRepository, SystemRepository
+from datetime import datetime, timezone
+from app.repositories.repos import UserRepository, ScheduleRepository, ProgramRepository, SystemRepository, BookingRepository
+from app.models import TutorRequest, User, RequestStatus, BookingRequest, TimeSlot
 from app.integration.adapters import SSOAdapter
 from app.domain.rules import ScheduleDomain
-
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime
+from fastapi import HTTPException
 class AuthService:
     def __init__(self, db: Session):
         self.user_repo = UserRepository(db)
@@ -67,17 +70,185 @@ class SysManagementService:
     
 class MatchingService:
     def __init__(self, db: Session):
-        self.user_repo = UserRepository(db)
+        self.db = db
 
-    def search_tutors(self, query: str = None):
-        # In a real app, apply filters here.
-        # For now, we fetch all and let frontend/controller mock the rich data
-        return self.user_repo.get_all_tutors()
+    def search_tutors(self):
+        return self.db.query(User).filter(User.role == "tutor").all()
 
-    def select_tutor(self, student_id: int, tutor_id: int):
-        # Logic:
-        # 1. Check if tutor exists
-        # 2. Create a "Selection Request" in DB (Mocked here)
-        # 3. Send Notification to Tutor (Mocked)
-        # 4. Return success
+    def select_tutor(self, student_id: int, tutor_id: int) -> bool:
+        # Kiểm tra tutor tồn tại
+        tutor = self.db.query(User).filter(User.id == tutor_id, User.role == "tutor").first()
+        if not tutor:
+            return False
+
+        # Kiểm tra đã gửi pending chưa
+        exists = self.db.query(TutorRequest).filter(
+            TutorRequest.student_id == student_id,
+            TutorRequest.tutor_id == tutor_id,
+            TutorRequest.status == RequestStatus.pending
+        ).first()
+
+        if exists:
+            return False
+
+        # Tạo yêu cầu mới
+        try:
+            request = TutorRequest(
+                student_id=student_id,
+                tutor_id=tutor_id,
+                status=RequestStatus.pending
+            )
+            self.db.add(request)
+            self.db.commit()
+            return True
+        except Exception:
+            self.db.rollback()
+            return False
+
+    def get_pending_requests_for_tutor(self, tutor_id: int):
+        return (self.db.query(TutorRequest)
+                .filter(TutorRequest.tutor_id == tutor_id,
+                        TutorRequest.status == RequestStatus.pending)
+                .join(User, User.id == TutorRequest.student_id)
+                .all())
+
+    def respond_to_request(self, request_id: int, tutor_id: int, accept: bool, reason: str = None) -> bool:
+        request = self.db.query(TutorRequest).filter(
+            TutorRequest.id == request_id,
+            TutorRequest.tutor_id == tutor_id,
+            TutorRequest.status == RequestStatus.pending
+        ).first()
+
+        if not request:
+            return False
+
+        if accept:
+            request.status = RequestStatus.accepted
+        else:
+            request.status = RequestStatus.rejected
+            request.reject_reason = reason or "Không có lý do cụ thể"
+
+        request.responded_at = datetime.utcnow()
+        self.db.commit()
         return True
+    
+class BookingService:
+    def __init__(self, db: Session):
+        self.db = db
+        self.booking_repo = BookingRepository(db)
+        self.schedule_repo = ScheduleRepository(db)
+
+    def get_slots_of_tutors(self, student_id):
+        # Tìm tutors đã accepted ở bảng TutorRequest
+        from app.models import TutorRequest, RequestStatus, TimeSlot, User
+
+        current_time = datetime.now()
+        
+        accepted_tutor_ids = (
+            self.db.query(TutorRequest.tutor_id)
+            .filter(
+                TutorRequest.student_id == student_id,
+                TutorRequest.status == RequestStatus.accepted
+            )
+            .subquery()
+        )
+
+        results = (
+            self.db.query(TimeSlot, User.ho_ten)
+            .join(User, TimeSlot.tutor_id == User.id)
+            .filter(TimeSlot.tutor_id.in_(accepted_tutor_ids))
+            .filter(TimeSlot.is_booked == False)
+            .filter(TimeSlot.start_time > current_time)
+            .order_by(TimeSlot.start_time.asc())
+            .all()
+        )
+
+        formatted_slots = [
+            {
+                "id": slot.id,
+                "tutor_id": slot.tutor_id,
+                "tutor_name": tutor_name,
+                "start_time": slot.start_time,
+                "end_time": slot.end_time,
+                "is_booked": slot.is_booked,
+            }
+            for slot, tutor_name in results
+        ]
+
+        return formatted_slots
+
+    def create_booking_request(self, student_id, slot_id, note=None):
+        slot = self.schedule_repo.get_slot_by_id(slot_id)
+        if not slot:
+            raise HTTPException(
+                status_code=400,
+                detail="Slot không tồn tại"
+            )
+        
+        existing_slot_request = (
+            self.db.query(BookingRequest)
+            .filter(BookingRequest.slot_id == slot_id)
+            .filter(BookingRequest.status == "pending")
+            .first()
+        )
+        if existing_slot_request:
+            raise HTTPException(
+                status_code=400,
+                detail="Slot này đang có yêu cầu đặt lịch khác chờ phản hồi."
+            )
+
+        if slot.is_booked:
+            raise HTTPException(
+            status_code=400,
+            detail="Slot này đã được đặt. Vui lòng chọn slot khác."
+        )
+
+        try:
+            return self.booking_repo.create_request(
+                student_id=student_id,
+                tutor_id=slot.tutor_id,
+                slot_id=slot_id,
+                note=note
+            )
+        except IntegrityError:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=400,
+                detail="Slot này đang có yêu cầu đặt lịch khác chờ phản hồi hoặc đã được đặt."
+            )
+        except Exception as e:
+            self.db.rollback()
+            raise e
+
+    def get_student_bookings(self, student_id):
+        return self.booking_repo.get_by_student(student_id)
+
+    def cancel_booking(self, student_id, req_id):
+        self.booking_repo.delete_request(req_id, student_id)
+
+    def tutor_get_pending_requests(self, tutor_id):
+        return self.booking_repo.get_pending_requests(tutor_id)
+    
+    def tutor_get_upcoming_sessions(self, tutor_id):
+        return self.booking_repo.get_upcoming_sessions(tutor_id)
+
+    def tutor_get_requests(self, tutor_id):
+        return self.booking_repo.get_by_tutor(tutor_id)
+
+    def tutor_respond(self, tutor_id, req_id, action: str):
+        req = self.booking_repo.get_by_id(req_id)
+        if not req or req.tutor_id != tutor_id:
+            raise Exception("Yêu cầu không tồn tại hoặc không thuộc về bạn.")
+        if req.status != 'pending':
+            raise Exception(f"Yêu cầu đã ở trạng thái {req.status} rồi.")
+        
+        if action == 'accept':
+            updated_req = self.booking_repo.update_status(req_id, "accepted")
+            return updated_req
+            
+        elif action == 'reject':
+            updated_req = self.booking_repo.update_status(req_id, "rejected")
+            return updated_req
+        
+        else:
+            raise Exception("Hành động không hợp lệ.")

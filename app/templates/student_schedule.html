@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lịch học của tôi - HCMUT Tutor</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      .fc {
+        font-family: "Inter", sans-serif;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    {% include 'header.html' %}
+
+    <div class="container mx-auto max-w-7xl py-8 px-4">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-3xl font-bold text-blue-900">Lịch học của tôi</h1>
+          <p class="text-gray-600 mt-2">
+            Xem và đăng ký lịch học với tutor của bạn.
+          </p>
+        </div>
+        <button
+          onclick="openBookingModal()"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg flex items-center gap-2 shadow"
+        >
+          <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+          Đăng ký lịch học
+        </button>
+      </div>
+
+      <div
+        class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8"
+      >
+        <div id="calendar" class="min-h-[600px]"></div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-800">
+          Các yêu cầu đặt lịch đã gửi ({{ requests|length }})
+        </h2>
+        <p class="text-sm text-gray-500 mb-4">
+          Có thể hủy những yêu cầu đang chờ phản hồi của bạn
+        </p>
+
+        {% if requests %}
+        <div class="space-y-4">
+          {% for req in requests %}
+          <div
+            class="p-4 border rounded-lg flex justify-between items-center bg-gray-50/50 hover:bg-gray-50 transition-colors"
+          >
+            <div class="flex items-start gap-4">
+              <div
+                class="flex-shrink-0 w-16 text-center border border-gray-200 rounded-lg"
+              >
+                <div class="text-sm text-gray-500 font-medium">
+                  {{ req.start_time.strftime('%a') }}
+                </div>
+                <div class="text-2xl font-bold text-gray-900">
+                  {{ req.start_time.day }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  Tháng {{ req.start_time.month }}
+                </div>
+              </div>
+              <div class="flex-1">
+                <h4 class="font-semibold text-gray-900 mb-1">
+                  {{ req.tutor_name }}
+                </h4>
+                <p class="text-sm text-gray-600">
+                  <span class="flex items-center gap-1">
+                    <i data-lucide="clock" class="h-3 w-3"></i>
+                    {{ req.start }} - {{ req.end }}
+                  </span>
+                </p>
+                <p class="text-sm mt-2">
+                  Trạng thái:
+                  <span
+                    class="px-2 py-1 rounded text-xs font-semibold {% if req.status == 'pending' %} bg-yellow-100 text-yellow-700 {% elif req.status == 'accepted' %} bg-green-100 text-green-700 {% else %} bg-red-100 text-red-700 {% endif %}"
+                  >
+                    {% if req.status == 'pending' %} Đang chờ phản hồi {% elif
+                    req.status == 'accepted' %} Đã được chấp nhận {% else %} Đã
+                    bị từ chối {% endif %}
+                  </span>
+                </p>
+                {% if req.note %}
+                <div
+                  class="text-sm text-gray-600 p-2 mt-2 bg-white border border-gray-200 rounded"
+                >
+                  <span class="text-gray-400 font-medium">Ghi chú:</span> {{
+                  req.note }}
+                </div>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if req.status == 'pending' %}
+            <button
+              onclick="cancelRequest('{{ req.id }}')"
+              class="flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-red-600 border border-gray-200 text-sm font-medium py-2 px-4 rounded transition-colors w-full md:w-auto"
+            >
+              <i data-lucide="x-circle" class="h-4 w-4"></i> Hủy yêu cầu
+            </button>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-sm">Bạn chưa gửi yêu cầu nào.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div
+      id="booking-modal"
+      class="fixed inset-0 bg-black/40 z-50 transition-opacity duration-300 opacity-0 invisible"
+    >
+      <div class="flex justify-center items-center min-h-screen px-4">
+        <div
+          id="modal-content"
+          class="bg-white rounded-xl p-6 w-full max-w-xl shadow-xl transition-transform duration-300 transform scale-95"
+        >
+          <h3
+            class="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2"
+          >
+            <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+            Đăng ký lịch học
+          </h3>
+
+          <div>
+            <label class="text-sm font-medium block mb-2">
+              Chọn 1 buổi học
+            </label>
+            <div
+              id="slot-list"
+              class="space-y-2 max-h-64 overflow-y-auto border p-2 rounded-lg"
+            >
+              <p class="text-center text-gray-500 text-sm py-4">
+                Đang tải lịch rảnh...
+              </p>
+            </div>
+            <p
+              id="selected-tutor-display"
+              class="mt-2 text-sm font-semibold text-blue-600"
+            ></p>
+          </div>
+
+          <input type="hidden" id="selected-slot" />
+          <input type="hidden" id="selected-tutor-id" />
+          <hr class="my-4" />
+
+          <label class="text-sm font-medium">Ghi chú (không bắt buộc)</label>
+          <textarea
+            id="note"
+            class="w-full p-2 border rounded mb-4"
+            rows="2"
+          ></textarea>
+
+          <div class="flex justify-end gap-3">
+            <button
+              onclick="closeBookingModal()"
+              class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Đóng
+            </button>
+            <button
+              onclick="submitBooking()"
+              class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Gửi yêu cầu
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      lucide.createIcons();
+
+      function formatTime(start_str, end_str) {
+        const start_time = new Date(start_str);
+        const end_time = new Date(end_str);
+        // Định dạng: dd/mm/yyyy - HH:MM
+        return (
+          start_time.toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false, // Định dạng 24h
+          }) +
+          " - " +
+          end_time.toLocaleTimeString("vi-VN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }) +
+          " ngày " +
+          start_time.toLocaleDateString("vi-VN", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })
+        );
+      }
+
+      document.addEventListener("DOMContentLoaded", async function () {
+        const calendarEl = document.getElementById("calendar");
+
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+          initialView: "timeGridWeek",
+          height: "auto",
+          headerToolbar: {
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,timeGridDay",
+          },
+          buttonText: {
+            today: "Hôm nay",
+            month: "Tháng",
+            week: "Tuần",
+            day: "Ngày",
+            list: "Danh sách",
+          },
+          locale: "vi",
+          slotMinTime: "07:00:00",
+          slotMaxTime: "22:00:00",
+          allDaySlot: false,
+          events: "/api/student/schedule",
+          eventDisplay: "block",
+
+          eventDidMount: function (info) {
+            if (info.event.extendedProps.status === "pending") {
+              info.el.style.background = "#fef9c3";
+              info.el.style.borderColor = "#facc15";
+            }
+            if (info.event.extendedProps.status === "accepted") {
+              info.el.style.background = "#dcfce7";
+              info.el.style.borderColor = "#16a34a";
+            }
+          },
+        });
+
+        calendar.render();
+      });
+
+      function openBookingModal() {
+        const modal = document.getElementById("booking-modal");
+        const content = document.getElementById("modal-content");
+
+        modal.classList.remove("invisible");
+
+        setTimeout(() => {
+          modal.classList.remove("opacity-0");
+          modal.classList.add("opacity-100");
+          content.classList.remove("scale-95");
+          content.classList.add("scale-100");
+        }, 10);
+
+        let slotList = document.getElementById("slot-list");
+        slotList.innerHTML =
+          '<p class="text-center text-gray-500 text-sm py-4">Đang tải lịch rảnh...</p>';
+        document.getElementById("selected-tutor-display").innerText = "";
+        document.getElementById("selected-slot").value = "";
+
+        fetch("/api/student/slots")
+          .then((r) => r.json())
+          .then((data) => {
+            console.log(data);
+            slotList.innerHTML = "";
+
+            if (data.slots && data.slots.length > 0) {
+              data.slots.forEach((slot) => {
+                const div = document.createElement("div");
+                div.className =
+                  "p-3 border rounded cursor-pointer hover:bg-blue-50 transition border-gray-200";
+                div.setAttribute("data-id", slot.id);
+                div.setAttribute("data-tutor-name", slot.tutor_name);
+                div.setAttribute("data-tutor-id", slot.tutor_id);
+
+                // Hiển thị tên tutor và thời gian đã được format
+                div.innerHTML = `
+                  <div class="font-medium text-gray-800">
+                    <span class="flex items-center gap-1">
+                      <i data-lucide="clock" class="h-3 w-3"></i>
+                      ${formatTime(slot.start_time, slot.end_time)}
+                    </span>
+                  </div>
+                  <div class="text-sm text-blue-600 mt-1">
+                    ${slot.tutor_name}
+                  </div>
+                `;
+
+                div.onclick = () => {
+                  // Xóa highlight cũ
+                  document.querySelectorAll("#slot-list div").forEach((el) => {
+                    el.classList.remove("bg-blue-100", "border-blue-500");
+                  });
+
+                  // Thêm highlight mới
+                  div.classList.add("bg-blue-100", "border-blue-500");
+
+                  // Cập nhật giá trị đã chọn
+                  document.getElementById("selected-slot").value = slot.id;
+                  document.getElementById("selected-tutor-display").innerText =
+                    "Đã chọn: " +
+                    slot.tutor_name +
+                    " khung giờ " +
+                    formatTime(slot.start_time, slot.end_time);
+                };
+
+                slotList.appendChild(div);
+              });
+              lucide.createIcons();
+            } else {
+              slotList.innerHTML =
+                '<p class="text-center text-gray-500 text-sm py-4">Bạn chưa có Tutor nào hoặc Tutor không có lịch rảnh nào trong tương lai.</p>';
+            }
+          });
+      }
+
+      function closeBookingModal() {
+        const modal = document.getElementById("booking-modal");
+        const content = document.getElementById("modal-content");
+
+        modal.classList.remove("opacity-100");
+        modal.classList.add("opacity-0");
+        content.classList.remove("scale-100");
+        content.classList.add("scale-95");
+
+        setTimeout(() => {
+          modal.classList.add("invisible");
+        }, 300);
+      }
+
+      function submitBooking() {
+        const slot_id = document.getElementById("selected-slot").value;
+        // const subject = document.getElementById("subject").value;
+
+        if (!slot_id) {
+          alert("Vui lòng chọn một buổi học!");
+          return;
+        }
+
+        // if (!subject || subject.trim() === "") {
+        //     alert("Vui lòng nhập môn học!");
+        //     return;
+        // }
+
+        const body = {
+          slot_id: parseInt(slot_id),
+          // subject: subject,
+          note: document.getElementById("note").value,
+        };
+
+        fetch(`/api/student/book`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+          .then(async (r) => {
+            if (!r.ok) {
+              const err = await r.json();
+              throw new Error(err.detail);
+            }
+            return r.json();
+          })
+          .then((d) => {
+            alert(d.message);
+            closeBookingModal();
+            location.reload();
+          })
+          .catch((e) => {
+            alert(e.message);
+          });
+      }
+
+      function cancelRequest(id) {
+        if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu đặt lịch này không?")) {
+          return;
+        }
+
+        fetch(`/api/student/booking/${id}`, { method: "DELETE" })
+          .then((r) => r.json())
+          .then((d) => {
+            alert(d.message);
+            location.reload();
+          })
+          .catch((e) => {
+            alert("Hủy yêu cầu thất bại.");
+          });
+      }
+    </script>
+  </body>
+</html>

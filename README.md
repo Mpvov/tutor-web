@@ -1,3 +1,4 @@
+```text
 tutor_system/
 ├── app/
 │   ├── integration/         # Layer: Integration (Adapters for SSO, Library, DataCore)
@@ -11,7 +12,7 @@ tutor_system/
 │   └── templates/           # HTML Views (Jinja2)
 ├── requirements.txt
 └── README.md
-
+```
 # Create enviroment
 
 `python -m venv venv`

@@ -125,7 +125,7 @@
         // --- Modal Logic (Unified) ---
         function showModal(title, message, isConfirm = false, onConfirm = null, type = 'info', showInput = false) {
             document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-message').innerHTML = message;
             
             const iconBg = document.getElementById('modal-icon-bg');
             const icon = document.getElementById('modal-icon');
@@ -333,7 +333,7 @@
                 
                 <div class="p-4 bg-gray-50 border-t border-gray-100">
                     <button class="w-full inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold bg-white text-blue-600 border border-blue-200 hover:bg-blue-50 h-10 px-4 transition-colors">
-                        Xem hồ sơ & Đăng ký
+                        Đăng ký
                     </button>
                 </div>
             `;
@@ -357,45 +357,68 @@
 
         // --- Selection Logic ---
         function openSelectModal(tutor) {
+            // Lấy tên sạch (loại bỏ phần "(Tutor)" nếu có)
+            const cleanName = tutor.name.replace(/\s*\(Tutor\)$/, '');
+
             showModal(
-                `Đăng ký Tutor: ${tutor.name}`,
-                `Bạn có chắc chắn muốn gửi yêu cầu đăng ký học với Tutor ${tutor.name} không? Tutor sẽ nhận được thông báo của bạn.`,
+                `Gửi yêu cầu đến Tutor ${cleanName}`,
+                `Bạn muốn gửi yêu cầu học với <strong>${cleanName}</strong>?<br>
+                <span class="text-sm text-gray-600">Tutor sẽ nhận thông báo và phản hồi sớm.</span>`,
                 true,
-                (note) => submitSelection(tutor.id, note), // Pass callback
+                () => submitSelection(tutor.id),
                 'info',
-                true // Show input
+                false
             );
         }
 
-        async function submitSelection(tutorId, note) {
-            // Find the NEW button created by showModal to show loading state
-            // Since we replace the button node, we need to grab it again
-            const btn = document.querySelectorAll('#modal-confirm-btn')[0]; // It's unique ID but querySelectorAll ensures fresh DOM access
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<i data-lucide="loader-2" class="h-4 w-4 animate-spin mr-2"></i> Đang gửi...';
-            lucide.createIcons();
-            btn.disabled = true;
+        async function submitSelection(tutorId) {
+            closeModal(); // Đóng modal xác nhận ngay
+
+            // Hiện loading nhẹ nhàng
+            showModal("Đang gửi yêu cầu...", "Vui lòng chờ một chút", false, null, "info");
 
             try {
                 const res = await fetch('/api/select_tutor', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tutor_id: tutorId, note: note })
+                    body: JSON.stringify({ 
+                        tutor_id: tutorId 
+                        // Không gửi note, không gửi môn học → backend chỉ cần biết sinh viên chọn tutor nào
+                    })
                 });
+
                 const data = await res.json();
-                
-                closeModal();
-                
+
                 if (data.success) {
-                    showModal("Thành công", data.message, false, null, 'success');
+                    showModal(
+                        "Đã gửi thành công!",
+                        `Yêu cầu của bạn đã được gửi đến tutor.<br>
+                        Bạn sẽ nhận thông báo khi tutor <strong>xác nhận hỗ trợ</strong>.`,
+                        false,
+                        null,
+                        "success"
+                    );
                 } else {
-                    showModal("Lỗi", data.message, false, null, 'danger');
+                    showModal(
+                        "Không thể gửi",
+                        data.message || "Bạn đã gửi yêu cầu với tutor này rồi, hoặc có lỗi xảy ra.",
+                        false,
+                        null,
+                        "danger"
+                    );
                 }
-            } catch (error) {
-                closeModal();
-                showModal("Lỗi mạng", "Lỗi kết nối server", false, null, 'danger');
+            } catch (err) {
+                console.error("Lỗi gửi yêu cầu:", err);
+                showModal(
+                    "Lỗi kết nối",
+                    "Không thể gửi yêu cầu. Vui lòng kiểm tra mạng và thử lại.",
+                    false,
+                    null,
+                    "danger"
+                );
             }
         }
+
     </script>
 </body>
 </html>
